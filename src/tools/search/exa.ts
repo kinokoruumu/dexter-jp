@@ -16,7 +16,7 @@ function getExaTool(): ExaSearchResults {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     exaTool = new ExaSearchResults({
       client: client as any,
-      searchArgs: { numResults: 5, text: true },
+      searchArgs: { numResults: 5, highlights: true },
     });
   }
   return exaTool!;
