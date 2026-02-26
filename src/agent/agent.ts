@@ -246,3 +246,4 @@ export class Agent {
       currentMessage: query,
     });
   }
+}
