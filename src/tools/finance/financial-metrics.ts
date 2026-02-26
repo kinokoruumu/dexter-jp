@@ -96,6 +96,11 @@ Given a user's natural language query about financial statements or metrics, cal
    - Prefer specific statement tools over get_all_financial_statements when possible
    - Use get_all_financial_statements when multiple statement types are needed
    - For comparisons between companies, call the same tool for each ticker
+   - Always use the smallest limit that can answer the question:
+     - Point-in-time/latest questions → limit 1
+     - Short trend (2-3 periods) → limit 3
+     - Medium trend (4-5 periods) → limit 5
+   - Increase limit beyond defaults only when the user explicitly asks for long history (e.g., 10-year trend)
 
 Call the appropriate tool(s) now.`;
 }

@@ -1,7 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+
+const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
 const KeyRatiosInputSchema = z.object({
   ticker: z
@@ -61,6 +63,9 @@ export const getKeyRatios = new DynamicStructuredTool({
       report_period_lte: input.report_period_lte,
     };
     const { data, url } = await callApi('/financial-metrics/', params);
-    return formatToolResult(data.financial_metrics || [], [url]);
+    return formatToolResult(
+      stripFieldsDeep(data.financial_metrics || [], REDUNDANT_FINANCIAL_FIELDS),
+      [url]
+    );
   },
 });

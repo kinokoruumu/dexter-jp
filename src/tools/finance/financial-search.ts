@@ -93,11 +93,11 @@ Given a user's natural language query about financial data, call the appropriate
    - Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
    - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
 
-2. **Date Inference**: Convert relative dates to YYYY-MM-DD format:
-   - "last year" → start_date 1 year ago, end_date today
-   - "last quarter" → start_date 3 months ago, end_date today
-   - "past 5 years" → start_date 5 years ago, end_date today
-   - "YTD" → start_date Jan 1 of current year, end_date today
+2. **Date Inference**: Use schema-supported filters for date ranges:
+   - "last year" → report_period_gte 1 year ago
+   - "last quarter" → report_period_gte 3 months ago
+   - "past 5 years" → report_period_gte 5 years ago and limit 5 (annual) or 20 (quarterly)
+   - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
    - For a current stock quote/snapshot (price, market cap now) → get_stock_price
@@ -112,6 +112,11 @@ Given a user's natural language query about financial data, call the appropriate
    - Prefer specific tools over general ones when possible
    - Use get_all_financial_statements only when multiple statement types needed
    - For comparisons between companies, call the same tool for each ticker
+   - Always use the smallest limit that can answer the question:
+     - Point-in-time/latest questions → limit 1
+     - Short trend (2-3 periods) → limit 3
+     - Medium trend (4-5 periods) → limit 5
+   - Increase limit beyond defaults only when the user explicitly asks for long history (e.g., 10-year trend)
 
 Call the appropriate tool(s) now.`;
 }
