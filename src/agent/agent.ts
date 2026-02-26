@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, loadSoulDocument } from '../agent/prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
@@ -10,7 +10,6 @@ import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/toke
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
 import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
 import { createRunContext, type RunContext } from './run-context.js';
-import { buildFinalAnswerContext } from './final-answer-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 
 
@@ -131,17 +130,9 @@ export class Agent {
         yield { type: 'thinking', message: trimmedText };
       }
 
-      // No tool calls = ready to generate final answer
+      // No tool calls = final answer is in this response
       if (typeof response === 'string' || !hasToolCalls(response)) {
-        // If no tools were called at all, just use the direct response
-        // This handles greetings, clarifying questions, etc.
-        if (!ctx.scratchpad.hasToolResults() && responseText) {
-          yield* this.handleDirectResponse(responseText, ctx);
-          return;
-        }
-
-        // Generate final answer with full context from scratchpad
-        yield* this.generateFinalAnswer(ctx);
+        yield* this.handleDirectResponse(responseText ?? '', ctx);
         return;
       }
 
@@ -172,10 +163,17 @@ export class Agent {
       );
     }
 
-    // Max iterations reached - still generate proper final answer
-    yield* this.generateFinalAnswer(ctx, {
-      fallbackMessage: `Reached maximum iterations (${this.maxIterations}).`,
-    });
+    // Max iterations reached with no final response
+    const totalTime = Date.now() - ctx.startTime;
+    yield {
+      type: 'done',
+      answer: `Reached maximum iterations (${this.maxIterations}). I was unable to complete the research in the allotted steps.`,
+      toolCalls: ctx.scratchpad.getToolCallRecords(),
+      iterations: ctx.iteration,
+      totalTime,
+      tokenUsage: ctx.tokenCounter.getUsage(),
+      tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
+    };
   }
 
   /**
@@ -194,46 +192,16 @@ export class Agent {
   }
 
   /**
-   * Generate final answer with full scratchpad context.
+   * Emit the response text as the final answer.
    */
   private async *handleDirectResponse(
     responseText: string,
     ctx: RunContext
   ): AsyncGenerator<AgentEvent, void> {
-    yield { type: 'answer_start' };
     const totalTime = Date.now() - ctx.startTime;
     yield {
       type: 'done',
       answer: responseText,
-      toolCalls: [],
-      iterations: ctx.iteration,
-      totalTime,
-      tokenUsage: ctx.tokenCounter.getUsage(),
-      tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
-    };
-  }
-
-  /**
-   * Generate final answer with full scratchpad context.
-   */
-  private async *generateFinalAnswer(
-    ctx: RunContext,
-    options?: { fallbackMessage?: string }
-  ): AsyncGenerator<AgentEvent, void> {
-    const fullContext = buildFinalAnswerContext(ctx.scratchpad);
-    const finalPrompt = buildFinalAnswerPrompt(ctx.query, fullContext);
-
-    yield { type: 'answer_start' };
-    const { response, usage } = await this.callModel(finalPrompt, false);
-    ctx.tokenCounter.add(usage);
-    const answer = typeof response === 'string'
-      ? response
-      : extractTextContent(response);
-
-    const totalTime = Date.now() - ctx.startTime;
-    yield {
-      type: 'done',
-      answer: options?.fallbackMessage ? answer || options.fallbackMessage : answer,
       toolCalls: ctx.scratchpad.getToolCallRecords(),
       iterations: ctx.iteration,
       totalTime,

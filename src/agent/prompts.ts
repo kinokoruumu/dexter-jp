@@ -231,28 +231,8 @@ ${fullToolResults}`;
 
   prompt += `
 
-Continue working toward answering the query. If you have gathered actual content (not just links or titles), you may respond. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
+Continue working toward answering the query. When you have gathered sufficient data to answer, write your complete answer directly and do not call more tools. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
 
   return prompt;
-}
-
-// ============================================================================
-// Final Answer Generation
-// ============================================================================
-
-/**
- * Build the prompt for final answer generation with full context data.
- * This is used after context compaction - full data is loaded from disk for the final answer.
- */
-export function buildFinalAnswerPrompt(
-  originalQuery: string,
-  fullContextData: string
-): string {
-  return `Query: ${originalQuery}
-
-Data retrieved from your tool calls:
-${fullContextData}
-
-Answer the user's query using this data. Do not ask the user to provide additional data, paste values, or reference JSON/API internals. If data is incomplete, answer with what you have.`;
 }
 

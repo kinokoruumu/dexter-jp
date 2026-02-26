@@ -234,27 +234,11 @@ export class ChatLogComponent extends Container {
     existing.setDenied(path, tool);
   }
 
-  startAnswer() {
-    if (this.activeAnswer) {
-      return this.activeAnswer;
-    }
-    this.activeAnswer = new AnswerBoxComponent('');
-    this.activeAnswer.setStreaming(true);
-    this.addChild(this.activeAnswer);
-    return this.activeAnswer;
-  }
-
-  updateAnswer(text: string) {
-    const answer = this.startAnswer();
-    answer.setText(text);
-  }
-
   finalizeAnswer(text: string) {
     if (!this.activeAnswer) {
       this.addChild(new AnswerBoxComponent(text));
       return;
     }
-    this.activeAnswer.setStreaming(false);
     this.activeAnswer.setText(text);
     this.activeAnswer = null;
   }

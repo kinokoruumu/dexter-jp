@@ -221,9 +221,6 @@ export class AgentRunnerController {
           completed: true,
         });
         break;
-      case 'answer_start':
-        this.workingStateValue = { status: 'answering', startTime: Date.now() };
-        break;
       case 'done': {
         const done = event as DoneEvent;
         if (done.answer) {
