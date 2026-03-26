@@ -10,7 +10,7 @@ import { getShareholders } from './shareholders.js';
  * Rich description for the read_filings tool.
  */
 export const READ_FILINGS_DESCRIPTION = `
-Intelligent meta-tool for reading Japanese securities report content. Takes a natural language query and retrieves the relevant text sections from annual securities reports (有価証券報告書).
+Intelligent meta-tool for reading Japanese securities report content. Retrieves text sections from annual securities reports (有価証券報告書) or shareholder data.
 
 ## When to Use
 
@@ -29,71 +29,50 @@ Intelligent meta-tool for reading Japanese securities report content. Takes a na
 
 ## Usage Notes
 
-- Call ONCE with the complete natural language query
-- Handles ticker resolution automatically (7203 → Toyota)
+- Provide a ticker (securities code like 7203, company name like 任天堂, or EDINET code like E02367)
+- Set type to "text-blocks" for report text or "shareholders" for ownership data
 - Returns full text sections from the most recent annual report
-- Sections: 事業の状況 (Business), 事業等のリスク (Risks), 経営者による分析 (MD&A), 経営方針 (Strategy)
 `.trim();
 
 const ReadFilingsInputSchema = z.object({
-  query: z.string().describe('Natural language query about securities report content to read'),
+  ticker: z
+    .string()
+    .describe(
+      "Securities code (e.g. '7203'), company name (e.g. '任天堂', 'Sony'), or EDINET code (e.g. 'E02367')."
+    ),
+  type: z
+    .enum(['text-blocks', 'shareholders'])
+    .default('text-blocks')
+    .describe(
+      "Type of data to retrieve: 'text-blocks' for report text (business overview, risks, MD&A, strategy), 'shareholders' for ownership data (大量保有報告書)."
+    ),
 });
 
 /**
  * Create a read_filings tool that retrieves text blocks from securities reports.
- * Simplified compared to the US version — EDINET reports have a fixed structure.
  */
 export function createReadFilings(_model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'read_filings',
-    description: `Intelligent tool for reading Japanese securities report content. Takes a natural language query and retrieves full text from annual reports (有価証券報告書). Use for:
-- Business overview and description (事業の状況)
-- Risk factors (事業等のリスク)
-- Management analysis / MD&A (経営者による分析)
-- Management policies and strategy (経営方針)
-- Ownership structure (大量保有報告書)`,
+    description: `Reads Japanese securities report content. Provide a ticker and type to retrieve:
+- text-blocks: Annual report text (事業の状況, 事業等のリスク, 経営者による分析, 経営方針)
+- shareholders: Large shareholding reports (大量保有報告書, 5%+ holders)`,
     schema: ReadFilingsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
-      // Extract ticker from query — simple heuristic
-      const query = input.query;
-
-      // Try to find a ticker pattern in the query (4-digit number or E+5digits or company name)
-      const secCodeMatch = query.match(/\b(\d{4})\b/);
-      const edinetCodeMatch = query.match(/\b(E\d{5})\b/);
-
-      // Extract the ticker — fall back to passing the full query as a search term
-      let ticker: string;
-      if (edinetCodeMatch) {
-        ticker = edinetCodeMatch[1];
-      } else if (secCodeMatch) {
-        ticker = secCodeMatch[1];
-      } else {
-        // Try to extract a meaningful company name from the query
-        // Remove common query words and use what remains
-        const cleaned = query
-          .replace(/の?(リスク|事業|経営|分析|方針|戦略|有報|有価証券|報告書|テキスト|内容|について|教えて|見せて|読んで|取得)/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        ticker = cleaned || query;
-      }
-
-      onProgress?.(`Resolving ${ticker}...`);
+      onProgress?.(`Resolving ${input.ticker}...`);
       let edinetCode: string;
       try {
-        edinetCode = await resolveEdinetCode(ticker);
+        edinetCode = await resolveEdinetCode(input.ticker);
       } catch {
         return formatToolResult(
-          { error: `Could not find company for query: ${query}` },
+          { error: `Could not find company: ${input.ticker}` },
           [],
         );
       }
 
-      // Check if the query is about shareholders
-      const isShareholderQuery = /株主|保有|所有|ownership|shareholder|holder/i.test(query);
-
-      if (isShareholderQuery) {
+      if (input.type === 'shareholders') {
         onProgress?.('Fetching shareholder data...');
         try {
           const result = await getShareholders.invoke({ ticker: edinetCode });
