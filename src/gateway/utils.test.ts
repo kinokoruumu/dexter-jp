@@ -47,7 +47,7 @@ describe('gateway utils', () => {
   describe('cleanMarkdownForWhatsApp', () => {
     test('converts markdown bold to WhatsApp bold', () => {
       expect(cleanMarkdownForWhatsApp('This is **bold** text')).toBe('This is *bold* text');
-      expect(cleanMarkdownForWhatsApp('**AAPL** vs **MSFT**')).toBe('*AAPL* vs *MSFT*');
+      expect(cleanMarkdownForWhatsApp('**7203** vs **6758**')).toBe('*7203* vs *6758*');
     });
 
     test('merges adjacent bold sections', () => {

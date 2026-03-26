@@ -189,6 +189,24 @@ export async function runCli() {
   );
 
   const intro = new IntroComponent(modelSelection.model);
+
+  // Startup warnings for missing API keys
+  const warnings: string[] = [];
+  if (!process.env.EDINETDB_API_KEY) {
+    warnings.push('EDINETDB_API_KEY not set — financial data tools will not work. Get a key at edinetdb.jp');
+  }
+  const hasLlmKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY ||
+    process.env.GOOGLE_API_KEY || process.env.XAI_API_KEY || process.env.OPENROUTER_API_KEY;
+  if (!hasLlmKey && !process.env.OLLAMA_BASE_URL) {
+    warnings.push('No LLM API key set — set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY in .env');
+  }
+  const warningText = new Text(
+    warnings.length > 0
+      ? theme.warning(warnings.map(w => `\u26a0 ${w}`).join('\n'))
+      : '',
+    0, 0,
+  );
+
   const errorText = new Text('', 0, 0);
   const workingIndicator = new WorkingIndicatorComponent(tui);
   const editor = new CustomEditor(tui, editorTheme);
@@ -262,6 +280,9 @@ export async function runCli() {
   const renderMainView = () => {
     root.clear();
     root.addChild(intro);
+    if (warnings.length > 0) {
+      root.addChild(warningText);
+    }
     root.addChild(chatLog);
     if (lastError ?? agentRunner.error) {
       root.addChild(errorText);

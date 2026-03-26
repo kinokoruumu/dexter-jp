@@ -3,7 +3,7 @@
  * Used for context compaction during the agent loop.
  * 
  * Examples:
- * - "AAPL income statements (annual) - 5 periods"
+ * - "7203 financial statements (annual) - 3 years"
  * - '"bitcoin price" tavily search'
  */
 export function getToolDescription(toolName: string, args: Record<string, unknown>): string {
