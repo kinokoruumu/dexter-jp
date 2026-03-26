@@ -13,7 +13,7 @@ Jobs run as isolated agent turns with full tool access, delivering results via W
 ## When to Use
 
 - User asks to set a recurring check, alert, or reminder
-- User says things like "watch AAPL and tell me when it hits $200", "check earnings every morning", "remind me about the Fed meeting"
+- User says things like "watch 7203 and tell me if ROE drops below 10%", "check earnings every morning", "remind me about the BOJ meeting"
 - User asks to see, modify, or cancel scheduled tasks
 - User wants a one-time alert at a specific time
 
@@ -29,18 +29,18 @@ Jobs run as isolated agent turns with full tool access, delivering results via W
 
 - **at**: One-shot at a specific time. \`{{ "kind": "at", "at": "2026-04-01T14:00:00Z" }}\`
 - **every**: Recurring interval in milliseconds. \`{{ "kind": "every", "everyMs": 3600000 }}\` (1 hour)
-- **cron**: Cron expression with optional timezone. \`{{ "kind": "cron", "expr": "0 9 * * 1-5", "tz": "America/New_York" }}\`
+- **cron**: Cron expression with optional timezone. \`{{ "kind": "cron", "expr": "0 9 * * 1-5", "tz": "Asia/Tokyo" }}\`
 
 ## Fulfillment Modes
 
 - **keep** (default): Job keeps running on schedule. For ongoing monitoring (e.g., "watch the market every hour").
-- **once**: Auto-disables after the first alert is sent. For price targets and one-time notifications (e.g., "tell me when NVDA hits $150").
+- **once**: Auto-disables after the first alert is sent. For one-time notifications (e.g., "tell me when 6758 reports earnings").
 - **ask**: After alerting, asks the user if they want to continue watching.
 
 ## Message Prompt
 
 The \`message\` field is the prompt the agent receives each time the job fires.
-Write it as a clear instruction, e.g.: "Check the current price of AAPL. If it has moved more than 3% from $185, alert the user with the current price and percentage change."
+Write it as a clear instruction, e.g.: "Check the latest financials for 7203 (Toyota). If ROE has changed by more than 2% from last check, alert the user with current metrics."
 
 ## Tips
 

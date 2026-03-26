@@ -35,7 +35,7 @@ const HeartbeatConfigSchema = z
       .object({
         start: z.string().optional().default('09:30'),
         end: z.string().optional().default('16:00'),
-        timezone: z.string().optional().default('America/New_York'),
+        timezone: z.string().optional().default('Asia/Tokyo'),
         daysOfWeek: z.array(z.number().min(0).max(6)).optional().default([1, 2, 3, 4, 5]),
       })
       .optional(),

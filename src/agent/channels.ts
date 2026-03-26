@@ -29,16 +29,16 @@ STRICT FORMAT - each row must:
 - Have no trailing spaces after the final |
 - Use |---| separator (with optional : for alignment)
 
-| Ticker | Rev    | OM  |
-|--------|--------|-----|
-| AAPL   | 416.2B | 31% |
+| Code | Rev (M¥) | OM  |
+|------|----------|-----|
+| 7203 | 45,095,325 | 8.1% |
 
 Keep tables compact:
 - Max 2-3 columns; prefer multiple small tables over one wide table
-- Headers: 1-3 words max. "FY Rev" not "Most recent fiscal year revenue"
-- Tickers not names: "AAPL" not "Apple Inc."
-- Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
-- Numbers compact: 102.5B not $102,466,000,000
+- Headers: 1-3 words max
+- Securities codes over company names when space is tight: "7203" not "トヨタ自動車"
+- Abbreviate: Rev, OI, NI, OCF, FCF, GM, OM, EPS
+- Numbers in millions of JPY (M¥) unless otherwise noted
 - Omit units in cells if header has them`,
 };
 

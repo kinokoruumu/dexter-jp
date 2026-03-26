@@ -26,7 +26,7 @@ export const getTextBlocks = new DynamicStructuredTool({
 - 経営者による分析 (Management Analysis / MD&A): management's discussion and analysis of financial condition
 - 経営方針 (Management Policies): strategy, challenges, outlook
 
-Use this when analyzing business risks, management discussion, company strategy, or any qualitative information from securities reports. Equivalent to reading a 10-K annual report in the US.`,
+Use this when analyzing business risks, management discussion, company strategy, or any qualitative information from securities reports.`,
   schema: TextBlocksInputSchema,
   func: async (input) => {
     const edinetCode = await resolveEdinetCode(input.ticker);

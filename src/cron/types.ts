@@ -11,7 +11,7 @@ export type CronSchedule = CronScheduleAt | CronScheduleEvery | CronScheduleCron
 export type ActiveHours = {
   start: string;   // "HH:MM" (e.g., "09:30")
   end: string;     // "HH:MM" (e.g., "16:00")
-  timezone?: string; // IANA timezone (default: America/New_York)
+  timezone?: string; // IANA timezone (default: Asia/Tokyo)
   daysOfWeek?: number[]; // 0=Sun..6=Sat (default: [1,2,3,4,5])
 };
 
