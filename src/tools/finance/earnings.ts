@@ -12,7 +12,7 @@ const EarningsInputSchema = z.object({
     ),
   limit: z
     .number()
-    .default(8)
+    .optional()
     .describe('Number of earnings disclosures to return (default: 8, max: 30).'),
 });
 
@@ -23,7 +23,7 @@ export const getEarnings = new DynamicStructuredTool({
   func: async (input) => {
     const edinetCode = await resolveEdinetCode(input.ticker);
     const params: Record<string, string | number> = {
-      limit: input.limit,
+      limit: input.limit ?? 8,
     };
     const { data: response, url } = await api.get(`/companies/${edinetCode}/earnings`, params);
     // API returns {data: {count, earnings: [...], edinet_code}}

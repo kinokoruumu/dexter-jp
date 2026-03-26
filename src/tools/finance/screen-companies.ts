@@ -78,7 +78,7 @@ const ScreenerConditionSchema = z.object({
     value: z.number().describe('Threshold value in display units'),
   })).describe('Array of screening conditions to apply (AND logic)'),
   industry: z.string().optional().describe('Filter by industry (Japanese name, exact match)'),
-  limit: z.number().default(25).describe('Maximum number of results (default: 25, max: 200)'),
+  limit: z.number().optional().describe('Maximum number of results (default: 25, max: 200)'),
   sort_by: z.string().optional().describe('Sort results by this metric key'),
 });
 
@@ -157,7 +157,7 @@ export function createScreenCompanies(model: string): DynamicStructuredTool {
       try {
         const params: Record<string, string | number | undefined> = {
           conditions: JSON.stringify(conditions.conditions),
-          limit: conditions.limit,
+          limit: conditions.limit ?? 25,
         };
         if (conditions.industry) params.industry = conditions.industry;
         if (conditions.sort_by) params.sort = conditions.sort_by;

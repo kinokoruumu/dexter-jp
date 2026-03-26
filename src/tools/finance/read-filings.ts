@@ -42,7 +42,7 @@ const ReadFilingsInputSchema = z.object({
     ),
   type: z
     .enum(['text-blocks', 'shareholders'])
-    .default('text-blocks')
+    .optional()
     .describe(
       "Type of data to retrieve: 'text-blocks' for report text (business overview, risks, MD&A, strategy), 'shareholders' for ownership data (大量保有報告書)."
     ),

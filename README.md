@@ -5,6 +5,8 @@
 [EDINET DB](https://edinetdb.jp) + [J-Quants](https://jpx-jquants.com/) で動く、日本株特化の金融AIエージェント。
 [virattt/dexter](https://github.com/virattt/dexter)（米国株版）をフォークし、日本市場向けに全面改修。
 
+![Dexter JP Demo](docs/demo.png)
+
 ## ただのツールではない
 
 よくある金融ツールは「スクリーニングできます」「財務データ見れます」で終わる。Dexter JPは違う。

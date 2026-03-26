@@ -12,13 +12,13 @@ const FinancialsInputSchema = z.object({
     ),
   period: z
     .enum(['annual', 'quarterly'])
-    .default('annual')
+    .optional()
     .describe(
       "Data period: 'annual' for yearly (default), 'quarterly' for quarterly data (available FY2014-2023)."
     ),
   years: z
     .number()
-    .default(3)
+    .optional()
     .describe(
       'Number of fiscal years to return (default: 3, max: 6). Returns most recent N years.'
     ),
@@ -31,8 +31,8 @@ export const getFinancials = new DynamicStructuredTool({
   func: async (input) => {
     const edinetCode = await resolveEdinetCode(input.ticker);
     const params: Record<string, string | number> = {
-      years: input.years,
-      period: input.period,
+      years: input.years ?? 3,
+      period: input.period ?? 'annual',
     };
     const { data: response, url } = await api.get(`/companies/${edinetCode}/financials`, params);
     return formatToolResult(response.data || response, [url]);
