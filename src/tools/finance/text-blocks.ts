@@ -35,7 +35,7 @@ Use this when analyzing business risks, management discussion, company strategy,
       params.fiscal_year = input.fiscal_year;
     }
     // Annual report text is immutable once filed
-    const { data, url } = await api.get(`/companies/${edinetCode}/text-blocks`, params, { cacheable: true });
-    return formatToolResult(data, [url]);
+    const { data: response, url } = await api.get(`/companies/${edinetCode}/text-blocks`, params, { cacheable: true });
+    return formatToolResult(response.data || response, [url]);
   },
 });

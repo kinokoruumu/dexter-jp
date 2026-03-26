@@ -34,8 +34,8 @@ export const getFinancials = new DynamicStructuredTool({
       years: input.years,
       period: input.period,
     };
-    const { data, url } = await api.get(`/companies/${edinetCode}/financials`, params);
-    return formatToolResult(data.financials || data, [url]);
+    const { data: response, url } = await api.get(`/companies/${edinetCode}/financials`, params);
+    return formatToolResult(response.data || response, [url]);
   },
 });
 
@@ -53,7 +53,7 @@ export const getCompanyInfo = new DynamicStructuredTool({
   schema: CompanyInfoInputSchema,
   func: async (input) => {
     const edinetCode = await resolveEdinetCode(input.ticker);
-    const { data, url } = await api.get(`/companies/${edinetCode}`, {});
-    return formatToolResult(data, [url]);
+    const { data: response, url } = await api.get(`/companies/${edinetCode}`, {});
+    return formatToolResult(response.data || response, [url]);
   },
 });

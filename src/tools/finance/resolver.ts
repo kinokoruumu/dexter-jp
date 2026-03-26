@@ -28,16 +28,16 @@ export async function resolveEdinetCode(ticker: string): Promise<string> {
     return codeCache.get(key)!;
   }
 
-  // Search via API
-  const { data } = await api.get('/companies/search', { q: key, limit: 1 });
-  const companies = data.companies as Array<{ edinet_code: string; name: string; secCode: string }> | undefined;
+  // Search via API — /v1/search returns { data: [{edinet_code, name, sec_code, ...}] }
+  const { data: responseData } = await api.get('/search', { q: key, limit: 1 });
+  const companies = responseData.data as Array<{ edinet_code: string; name: string; sec_code: string }> | undefined;
 
   if (!companies || companies.length === 0) {
     throw new Error(`Company not found: ${ticker}`);
   }
 
   const edinetCode = companies[0].edinet_code;
-  const secCode = companies[0].secCode;
+  const secCode = companies[0].sec_code;
 
   // Cache both the original query key and the secCode
   codeCache.set(key, edinetCode);
