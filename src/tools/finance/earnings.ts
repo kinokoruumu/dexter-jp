@@ -25,7 +25,9 @@ export const getEarnings = new DynamicStructuredTool({
     const params: Record<string, string | number> = {
       limit: input.limit,
     };
-    const { data, url } = await api.get(`/companies/${edinetCode}/earnings`, params);
-    return formatToolResult(data.earnings || data, [url]);
+    const { data: response, url } = await api.get(`/companies/${edinetCode}/earnings`, params);
+    // API returns {data: {count, earnings: [...], edinet_code}}
+    const earningsData = response.data as Record<string, unknown> | undefined;
+    return formatToolResult(earningsData?.earnings || response.data || response, [url]);
   },
 });

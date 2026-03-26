@@ -18,7 +18,7 @@ export const getShareholders = new DynamicStructuredTool({
   schema: ShareholdersInputSchema,
   func: async (input) => {
     const edinetCode = await resolveEdinetCode(input.ticker);
-    const { data, url } = await api.get(`/companies/${edinetCode}/shareholders`, {});
-    return formatToolResult(data.shareholders || data, [url]);
+    const { data: response, url } = await api.get(`/companies/${edinetCode}/shareholders`, {});
+    return formatToolResult(response.data || response, [url]);
   },
 });

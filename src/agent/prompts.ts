@@ -234,6 +234,7 @@ ${toolDescriptions}
 - For financials, metrics, ratios, earnings, and company analysis, use get_financials
 - For reading securities report text (business overview, risks, MD&A, strategy, shareholders), use read_filings
 - For screening companies by financial criteria (e.g., ROE above 15%, high dividend yield), use company_screener
+- For stock prices (if get_stock_price is available), use it for current/historical OHLC data from J-Quants (TSE official)
 - Call get_financials or read_filings ONCE with the full natural language query - they handle routing internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
 - For general web queries or non-financial topics, use web_search

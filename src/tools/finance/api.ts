@@ -1,7 +1,7 @@
 import { readCache, writeCache, describeRequest } from '../../utils/cache.js';
 import { logger } from '../../utils/logger.js';
 
-const BASE_URL = 'https://edinetdb.jp/api/v1';
+const BASE_URL = 'https://edinetdb.jp/v1';
 
 export interface ApiResponse {
   data: Record<string, unknown>;

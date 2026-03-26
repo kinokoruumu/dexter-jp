@@ -152,17 +152,17 @@ export function createScreenCompanies(model: string): DynamicStructuredTool {
         );
       }
 
-      // POST to screener API
+      // GET /screener with conditions as JSON query param
       onProgress?.('Screening companies...');
       try {
-        const body: Record<string, unknown> = {
-          conditions: conditions.conditions,
+        const params: Record<string, string | number | undefined> = {
+          conditions: JSON.stringify(conditions.conditions),
           limit: conditions.limit,
         };
-        if (conditions.industry) body.industry = conditions.industry;
-        if (conditions.sort_by) body.sort_by = conditions.sort_by;
+        if (conditions.industry) params.industry = conditions.industry;
+        if (conditions.sort_by) params.sort = conditions.sort_by;
 
-        const { data, url } = await api.post('/companies/screen', body);
+        const { data, url } = await api.get('/screener', params);
         return formatToolResult(data, [url]);
       } catch (error) {
         return formatToolResult(
