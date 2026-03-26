@@ -4,8 +4,9 @@ import { dexterPath } from '../../utils/paths.js';
 
 const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
 
-const DEFAULT_CHECKLIST = `- Major index moves (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
-- Breaking financial news — major earnings surprises, Fed announcements, significant market events`;
+const DEFAULT_CHECKLIST = `- 主要指数の動き（日経平均、TOPIX）— 1セッションで2%以上動いたらアラート
+- 注目企業の決算発表 — TDNet決算短信の新着、業績サプライズ
+- 重要な市場ニュース — 日銀金融政策決定会合、重要な経済指標発表`;
 
 /**
  * Load .dexter/HEARTBEAT.md content.

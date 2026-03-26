@@ -30,11 +30,11 @@ const HeartbeatConfigSchema = z
   .object({
     enabled: z.boolean().optional().default(false),
     intervalMinutes: z.number().min(5).optional().default(10),
-    // default to NYSE market hours: 9:30 AM - 4:00 PM ET, Mon-Fri
+    // default to TSE market hours: 9:00 AM - 3:30 PM JST, Mon-Fri
     activeHours: z
       .object({
-        start: z.string().optional().default('09:30'),
-        end: z.string().optional().default('16:00'),
+        start: z.string().optional().default('09:00'),
+        end: z.string().optional().default('15:30'),
         timezone: z.string().optional().default('Asia/Tokyo'),
         daysOfWeek: z.array(z.number().min(0).max(6)).optional().default([1, 2, 3, 4, 5]),
       })
