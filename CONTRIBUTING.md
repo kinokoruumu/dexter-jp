@@ -33,6 +33,10 @@ src/
     finance/     # EDINET DB / J-Quants ツール群（ここが日本版の核心）
     search/      # Web検索（Exa, Perplexity, Tavily）
     browser/     # Playwright ブラウザ
+  gateway/
+    channels/    # メッセージング連携（Slack, Discord, LINE, WhatsApp）
+    group/       # グループメンション検知、メッセージ履歴バッファ
+    routing/     # チャネル→エージェントのルーティング
   skills/        # SKILL.md ワークフロー（DCF等）
   model/         # LLM抽象化（マルチプロバイダー）
   memory/        # 永続メモリ

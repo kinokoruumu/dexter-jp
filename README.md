@@ -173,7 +173,7 @@ Compare Sony vs Nintendo as investment targets with a final recommendation.
 
 ### メッセージング連携
 
-CLIだけでなく、チャットアプリ経由でも使える。`bun run gateway` で起動:
+CLIだけでなく、Slack・Discord経由でも使える。`bun run gateway` で起動:
 
 | チャネル | 方式 | 公開URL | 環境変数 |
 |---------|------|---------|---------|
@@ -183,6 +183,46 @@ CLIだけでなく、チャットアプリ経由でも使える。`bun run gatew
 | WhatsApp | Baileys (WebSocket) | 不要 | QRコードでログイン |
 
 設定された環境変数に応じて、対応するチャネルだけが起動する。複数チャネル同時稼働可能。
+
+#### Slack Bot セットアップ
+
+1. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → From scratch
+2. **Socket Mode** → Enable → App-Level Token を生成（`xapp-`で始まるトークン）
+3. **OAuth & Permissions** → Bot Token Scopes に追加:
+   - `chat:write`, `im:history`, `im:read`, `app_mentions:read`
+4. **Event Subscriptions** → Enable Events → Subscribe to bot events:
+   - `message.im`（DM受信）, `app_mention`（メンション受信）
+5. **App Home** → Messages Tab を ON → 「Allow users to send Slash commands and messages from the messages tab」にチェック
+6. **Install to Workspace** → Bot Token（`xoxb-`で始まる）をコピー
+7. `.env` に設定:
+   ```bash
+   SLACK_BOT_TOKEN=xoxb-...
+   SLACK_APP_TOKEN=xapp-...
+   ```
+
+サーバー内ではスレッド返信、DMでは直接返信。
+
+#### Discord Bot セットアップ
+
+1. [discord.com/developers/applications](https://discord.com/developers/applications) → **New Application**
+2. **Bot** → Reset Token → Bot Token をコピー
+3. **Bot** → Privileged Gateway Intents → **Message Content Intent** を ON
+4. **OAuth2** → URL Generator:
+   - Scopes: `bot`
+   - Bot Permissions: `Send Messages`, `Read Message History`, `Send Messages in Threads`
+5. 生成されたURLをブラウザで開いてサーバーに招待
+6. `.env` に設定:
+   ```bash
+   DISCORD_BOT_TOKEN=MTQ4...
+   ```
+
+サーバー内では `@Bot名` メンションでスレッド返信、DMでは直接返信。
+
+#### 起動
+
+```bash
+bun run gateway    # 設定済みの全チャネルが同時に起動
+```
 
 ## データソース
 
