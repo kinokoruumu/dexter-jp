@@ -10,8 +10,13 @@ export function isBotMentioned(params: {
 }): boolean {
   const { mentionedJids, selfJid, selfLid, selfE164, body } = params;
 
-  if (mentionedJids?.length) {
-    // Collect all known base identifiers for the bot (phone JID + LID)
+  if (mentionedJids?.length && selfJid) {
+    // Direct ID match (works for Discord/Slack where IDs are plain strings)
+    if (mentionedJids.includes(selfJid)) {
+      return true;
+    }
+
+    // WhatsApp JID/LID base match (split on @ and : for phone-based IDs)
     const selfBases = new Set<string>();
     for (const id of [selfJid, selfLid]) {
       if (id) {

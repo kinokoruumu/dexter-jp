@@ -29,7 +29,7 @@ export function createDiscordPlugin(params: DiscordPluginParams): ChannelPlugin<
     },
     gateway: {
       startAccount: async (ctx: ChannelStartContext<DiscordAccountConfig>) => {
-        const { Client, GatewayIntentBits } = await import('discord.js');
+        const { Client, GatewayIntentBits, Partials } = await import('discord.js');
 
         const client = new Client({
           intents: [
@@ -38,6 +38,8 @@ export function createDiscordPlugin(params: DiscordPluginParams): ChannelPlugin<
             GatewayIntentBits.DirectMessages,
             GatewayIntentBits.MessageContent,
           ],
+          // Partials needed to receive DMs properly
+          partials: [Partials.Channel, Partials.Message],
         });
 
         let botUserId: string | undefined;
@@ -54,16 +56,22 @@ export function createDiscordPlugin(params: DiscordPluginParams): ChannelPlugin<
           if (message.author.bot) return;
 
           const isDm = !message.guild;
-          const isMentioned = message.mentions.has(client.user!);
+          // Check both user @mentions and role @mentions (Discord shows role mention when clicking bot name)
+          const isMentioned = message.mentions.has(client.user!) ||
+            message.mentions.roles.some(role => role.name === client.user?.username) ||
+            message.content.includes(`<@${botUserId}>`) ||
+            message.content.includes(`<@!${botUserId}>`);
 
           // In servers, only respond to @mentions; in DMs, always respond
           if (!isDm && !isMentioned) return;
 
-          // Strip the bot mention from the message text
+          // Strip bot mention and role mentions from message text
           let body = message.content;
           if (botUserId) {
             body = body.replace(new RegExp(`<@!?${botUserId}>\\s*`, 'g'), '').trim();
           }
+          // Also strip role mentions that match the bot's name
+          body = body.replace(/<@&\d+>\s*/g, '').trim();
           if (!body) return;
 
           const inbound: InboundMessage = {
@@ -79,15 +87,28 @@ export function createDiscordPlugin(params: DiscordPluginParams): ChannelPlugin<
             timestamp: message.createdTimestamp,
             groupSubject: message.guild?.name,
             selfId: botUserId,
-            mentionedIds: message.mentions.users.map(u => u.id),
+            mentionedIds: isMentioned && botUserId
+              ? [...new Set([...message.mentions.users.map(u => u.id), botUserId])]
+              : message.mentions.users.map(u => u.id),
             sendComposing: async () => {
               await message.channel.sendTyping();
             },
             reply: async (text: string) => {
-              // Split long messages (Discord has 2000 char limit)
               const chunks = splitMessage(text, 2000);
-              for (const chunk of chunks) {
-                await message.reply(chunk);
+              if (!isDm && message.channel.isTextBased() && 'threads' in message.channel) {
+                // In servers, reply in a thread to keep the channel clean
+                const thread = message.thread ?? await message.startThread({
+                  name: `${message.author.displayName || message.author.username}の質問`,
+                  autoArchiveDuration: 60,
+                });
+                for (const chunk of chunks) {
+                  await thread.send(chunk);
+                }
+              } else {
+                // In DMs, reply directly
+                for (const chunk of chunks) {
+                  await message.reply(chunk);
+                }
               }
             },
             send: async (text: string) => {
