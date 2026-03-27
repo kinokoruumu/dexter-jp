@@ -1,4 +1,4 @@
-import { createChannelManager } from './channels/manager.js';
+import { createChannelManager, type ChannelManager } from './channels/manager.js';
 import { createWhatsAppPlugin } from './channels/whatsapp/plugin.js';
 import {
   assertOutboundAllowed,
@@ -6,11 +6,12 @@ import {
   sendMessageWhatsApp,
   type WhatsAppInboundMessage,
 } from './channels/whatsapp/index.js';
+import { formatForChannel } from './channels/send.js';
+import type { InboundMessage } from './types.js';
 import { resolveRoute } from './routing/resolve-route.js';
 import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js';
 import { loadGatewayConfig, type GatewayConfig } from './config.js';
 import { runAgentForMessage } from './agent-runner.js';
-import { cleanMarkdownForWhatsApp } from './utils.js';
 import { startCronRunner } from '../cron/runner.js';
 import { ensureHeartbeatCronJob } from '../cron/heartbeat-migration.js';
 import {
@@ -41,27 +42,54 @@ function elide(text: string, maxLen: number): string {
   return text.slice(0, maxLen - 3) + '...';
 }
 
-async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage): Promise<void> {
+/**
+ * Convert WhatsApp-specific inbound message to channel-agnostic InboundMessage.
+ */
+function normalizeWhatsAppInbound(wa: WhatsAppInboundMessage): InboundMessage {
+  return {
+    channel: 'whatsapp',
+    accountId: wa.accountId,
+    senderId: wa.senderId,
+    senderName: wa.senderName,
+    chatId: wa.chatId,
+    replyTo: wa.replyToJid,
+    chatType: wa.chatType,
+    body: wa.body,
+    messageId: wa.id,
+    timestamp: wa.timestamp,
+    groupSubject: wa.groupSubject,
+    groupParticipants: wa.groupParticipants,
+    mentionedIds: wa.mentionedJids,
+    selfId: wa.selfJid ?? undefined,
+    selfIdAlt: wa.selfLid ?? undefined,
+    sendComposing: wa.sendComposing,
+    reply: wa.reply,
+    send: async (text: string) => { await sendMessageWhatsApp({ to: wa.replyToJid, body: text, accountId: wa.accountId }); },
+  };
+}
+
+/**
+ * Channel-agnostic inbound message handler.
+ */
+async function handleInbound(cfg: GatewayConfig, inbound: InboundMessage): Promise<void> {
   const bodyPreview = elide(inbound.body.replace(/\n/g, ' '), 50);
   const isGroup = inbound.chatType === 'group';
-  console.log(`Inbound message ${inbound.from} (${inbound.chatType}, ${inbound.body.length} chars): "${bodyPreview}"`);
-  debugLog(`[gateway] handleInbound from=${inbound.from} isGroup=${isGroup} body="${inbound.body.slice(0, 30)}..."`);
+  console.log(`[${inbound.channel}] Inbound from ${inbound.senderId} (${inbound.chatType}, ${inbound.body.length} chars): "${bodyPreview}"`);
+  debugLog(`[gateway] handleInbound channel=${inbound.channel} from=${inbound.senderId} isGroup=${isGroup}`);
 
   // --- Group-specific: track member, check mention gating ---
   if (isGroup) {
     noteGroupMember(inbound.chatId, inbound.senderId, inbound.senderName);
 
     const mentioned = isBotMentioned({
-      mentionedJids: inbound.mentionedJids,
-      selfJid: inbound.selfJid,
-      selfLid: inbound.selfLid,
-      selfE164: inbound.selfE164,
+      mentionedJids: inbound.mentionedIds ?? [],
+      selfJid: inbound.selfId ?? '',
+      selfLid: inbound.selfIdAlt,
       body: inbound.body,
     });
     debugLog(`[gateway] group mention check: mentioned=${mentioned}`);
 
     if (!mentioned) {
-      // Buffer the message for future context but don't reply
       recordGroupMessage(inbound.chatId, {
         senderName: inbound.senderName ?? inbound.senderId,
         senderId: inbound.senderId,
@@ -73,11 +101,11 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     }
   }
 
-  // --- Routing: use chatId for groups (group JID), senderId for DMs ---
+  // --- Routing ---
   const peerId = isGroup ? inbound.chatId : inbound.senderId;
   const route = resolveRoute({
     cfg,
-    channel: 'whatsapp',
+    channel: inbound.channel,
     accountId: inbound.accountId,
     peer: { kind: inbound.chatType, id: peerId },
   });
@@ -86,27 +114,19 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
   upsertSessionMeta({
     storePath,
     sessionKey: route.sessionKey,
-    channel: 'whatsapp',
-    to: inbound.from,
+    channel: inbound.channel,
+    to: inbound.replyTo,
     accountId: route.accountId,
     agentId: route.agentId,
   });
 
-  // Start typing indicator loop to keep it alive during long agent runs
-  const TYPING_INTERVAL_MS = 5000; // Refresh every 5 seconds
+  // --- Typing indicator loop ---
+  const TYPING_INTERVAL_MS = 5000;
   let typingTimer: ReturnType<typeof setInterval> | undefined;
 
   const startTypingLoop = async () => {
-    // For groups, use inbound.sendComposing directly (bypasses outbound strict checks)
-    if (isGroup) {
-      await inbound.sendComposing();
-      typingTimer = setInterval(() => { void inbound.sendComposing(); }, TYPING_INTERVAL_MS);
-    } else {
-      await sendComposing({ to: inbound.replyToJid, accountId: inbound.accountId });
-      typingTimer = setInterval(() => {
-        void sendComposing({ to: inbound.replyToJid, accountId: inbound.accountId });
-      }, TYPING_INTERVAL_MS);
-    }
+    await inbound.sendComposing();
+    typingTimer = setInterval(() => { void inbound.sendComposing(); }, TYPING_INTERVAL_MS);
   };
 
   const stopTypingLoop = () => {
@@ -117,21 +137,22 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
   };
 
   try {
-    // Defense-in-depth: verify outbound destination is allowed before any messaging
-    // For groups, use chatId (the group JID); for DMs, use replyToJid
-    const outboundTarget = isGroup ? inbound.chatId : inbound.replyToJid;
-    try {
-      assertOutboundAllowed({ to: outboundTarget, accountId: inbound.accountId });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      debugLog(`[gateway] outbound BLOCKED: ${msg}`);
-      console.log(msg);
-      return;
+    // For WhatsApp, verify outbound is allowed (other channels handle this internally)
+    if (inbound.channel === 'whatsapp') {
+      const outboundTarget = isGroup ? inbound.chatId : inbound.replyTo;
+      try {
+        assertOutboundAllowed({ to: outboundTarget, accountId: inbound.accountId });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        debugLog(`[gateway] outbound BLOCKED: ${msg}`);
+        console.log(msg);
+        return;
+      }
     }
 
     await startTypingLoop();
 
-    // --- Build query: for groups, include buffered history context ---
+    // --- Build query (group context) ---
     let query = inbound.body;
     let groupContext: GroupContext | undefined;
 
@@ -166,29 +187,23 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
       query,
       model,
       modelProvider,
-      channel: 'whatsapp',
+      channel: inbound.channel,
       groupContext,
     });
     const durationMs = Date.now() - startedAt;
     debugLog(`[gateway] agent answer length=${answer.length}`);
 
-    // Stop typing loop before sending reply
     stopTypingLoop();
 
     if (answer.trim()) {
-      const cleanedAnswer = cleanMarkdownForWhatsApp(answer);
+      const formatted = formatForChannel(inbound.channel, answer);
 
       if (isGroup) {
-        // For groups, use inbound.reply() directly (bypasses outbound strict E.164 checks)
         debugLog(`[gateway] sending group reply to ${inbound.chatId}`);
-        await inbound.reply(cleanedAnswer);
+        await inbound.reply(formatted);
       } else {
-        debugLog(`[gateway] sending reply to ${inbound.replyToJid}`);
-        await sendMessageWhatsApp({
-          to: inbound.replyToJid,
-          body: cleanedAnswer,
-          accountId: inbound.accountId,
-        });
+        debugLog(`[gateway] sending reply to ${inbound.replyTo}`);
+        await inbound.send(formatted);
       }
       console.log(`Sent reply (${answer.length} chars, ${durationMs}ms)`);
       debugLog(`[gateway] reply sent`);
@@ -204,20 +219,84 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
   }
 }
 
+/**
+ * Start the gateway with all configured channels.
+ */
 export async function startGateway(params: { configPath?: string } = {}): Promise<GatewayService> {
   const cfg = loadGatewayConfig(params.configPath);
-  const plugin = createWhatsAppPlugin({
+
+  // --- Channel plugins ---
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const managers: ChannelManager<any, any>[] = [];
+
+  // WhatsApp (always registered, only starts if configured)
+  const waPlugin = createWhatsAppPlugin({
     loadConfig: () => loadGatewayConfig(params.configPath),
-    onMessage: async (inbound) => {
+    onMessage: async (waInbound) => {
       const current = loadGatewayConfig(params.configPath);
+      const inbound = normalizeWhatsAppInbound(waInbound);
       await handleInbound(current, inbound);
     },
   });
-  const manager = createChannelManager({
-    plugin,
+  const waManager = createChannelManager({
+    plugin: waPlugin,
     loadConfig: () => loadGatewayConfig(params.configPath),
   });
-  await manager.startAll();
+  managers.push(waManager);
+
+  // Slack (if configured)
+  if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
+    const { createSlackPlugin } = await import('./channels/slack/plugin.js');
+    const slackPlugin = createSlackPlugin({
+      loadConfig: () => loadGatewayConfig(params.configPath),
+      onMessage: async (inbound) => {
+        const current = loadGatewayConfig(params.configPath);
+        await handleInbound(current, inbound);
+      },
+    });
+    const slackManager = createChannelManager({
+      plugin: slackPlugin,
+      loadConfig: () => loadGatewayConfig(params.configPath),
+    });
+    managers.push(slackManager);
+  }
+
+  // Discord (if configured)
+  if (process.env.DISCORD_BOT_TOKEN) {
+    const { createDiscordPlugin } = await import('./channels/discord/plugin.js');
+    const discordPlugin = createDiscordPlugin({
+      loadConfig: () => loadGatewayConfig(params.configPath),
+      onMessage: async (inbound) => {
+        const current = loadGatewayConfig(params.configPath);
+        await handleInbound(current, inbound);
+      },
+    });
+    const discordManager = createChannelManager({
+      plugin: discordPlugin,
+      loadConfig: () => loadGatewayConfig(params.configPath),
+    });
+    managers.push(discordManager);
+  }
+
+  // LINE (if configured)
+  if (process.env.LINE_CHANNEL_SECRET && process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    const { createLinePlugin } = await import('./channels/line/plugin.js');
+    const linePlugin = createLinePlugin({
+      loadConfig: () => loadGatewayConfig(params.configPath),
+      onMessage: async (inbound) => {
+        const current = loadGatewayConfig(params.configPath);
+        await handleInbound(current, inbound);
+      },
+    });
+    const lineManager = createChannelManager({
+      plugin: linePlugin,
+      loadConfig: () => loadGatewayConfig(params.configPath),
+    });
+    managers.push(lineManager);
+  }
+
+  // Start all channel managers
+  await Promise.all(managers.map(m => m.startAll()));
 
   ensureHeartbeatCronJob(params.configPath);
   const cron = startCronRunner({ configPath: params.configPath });
@@ -225,9 +304,14 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
   return {
     stop: async () => {
       cron.stop();
-      await manager.stopAll();
+      await Promise.all(managers.map(m => m.stopAll()));
     },
-    snapshot: () => manager.getSnapshot(),
+    snapshot: () => {
+      const combined: Record<string, { accountId: string; running: boolean; connected?: boolean }> = {};
+      for (const m of managers) {
+        Object.assign(combined, m.getSnapshot());
+      }
+      return combined;
+    },
   };
 }
-

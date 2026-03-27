@@ -1,4 +1,4 @@
-export type ChannelId = 'whatsapp';
+export type ChannelId = 'whatsapp' | 'slack' | 'discord' | 'line';
 
 export type ChannelRuntimeSnapshot = {
   accountId: string;

@@ -7,7 +7,8 @@ import {
 } from '../gateway/heartbeat/suppression.js';
 import { assertOutboundAllowed, sendMessageWhatsApp } from '../gateway/channels/whatsapp/index.js';
 import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '../gateway/sessions/store.js';
-import { cleanMarkdownForWhatsApp } from '../gateway/utils.js';
+import { formatForChannel } from '../gateway/channels/send.js';
+import type { ChannelId } from '../gateway/channels/types.js';
 import { getSetting } from '../utils/config.js';
 import { dexterPath } from '../utils/paths.js';
 import { saveCronStore } from './store.js';
@@ -107,7 +108,7 @@ export async function executeCronJob(
 
   debugLog(`[cron] executing job "${job.name}" (${job.id})`);
 
-  // 1. Find WhatsApp delivery target
+  // 1. Find delivery target (channel-agnostic)
   const session = findTargetSession();
   if (!session?.lastTo || !session?.lastAccountId) {
     debugLog(`[cron] job ${job.id}: no delivery target, skipping`);
@@ -145,7 +146,7 @@ export async function executeCronJob(
       modelProvider,
       maxIterations: 6,
       isolatedSession: true,
-      channel: 'whatsapp',
+      channel: (session.lastChannel as ChannelId) || 'whatsapp',
     });
   } catch (err) {
     handleJobError(job, store, err, startedAt);
@@ -169,13 +170,20 @@ export async function executeCronJob(
   } else {
     job.state.lastRunStatus = 'ok';
 
-    // Deliver via WhatsApp
-    const cleaned = cleanMarkdownForWhatsApp(suppResult.cleanedText);
-    await sendMessageWhatsApp({
-      to: session.lastTo,
-      body: cleaned,
-      accountId: session.lastAccountId,
-    });
+    // Deliver via the channel the user last used
+    const deliveryChannel = (session.lastChannel as ChannelId) || 'whatsapp';
+    const cleaned = formatForChannel(deliveryChannel, suppResult.cleanedText);
+    // For now, only WhatsApp has a push-send function; other channels reply inline only
+    if (deliveryChannel === 'whatsapp') {
+      await sendMessageWhatsApp({
+        to: session.lastTo,
+        body: cleaned,
+        accountId: session.lastAccountId,
+      });
+    } else {
+      // TODO: implement push delivery for Slack/Discord/LINE
+      debugLog(`[cron] job ${job.id}: push delivery not yet supported for ${deliveryChannel}`);
+    }
     debugLog(`[cron] job ${job.id}: delivered to ${session.lastTo}`);
 
     // Update suppression state for duplicate detection
