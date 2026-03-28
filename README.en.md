@@ -220,6 +220,40 @@ In channels, Dexter replies in threads. In DMs, it replies directly.
 
 In servers, mention `@BotName` to get a threaded reply. In DMs, it replies directly.
 
+#### LINE Bot Setup
+
+LINE uses webhooks (not WebSocket), so you need a publicly accessible URL — unlike Slack/Discord.
+
+1. Create a **LINE Official Account** at [LINE Official Account Manager](https://manager.line.biz/)
+   - As of 2026, you cannot create Messaging API channels directly from the LINE Developers Console
+2. In LINE Official Account Manager → **Settings** → **Messaging API** → **Enable Messaging API**
+   - Select an existing provider
+3. In [LINE Developers Console](https://developers.line.biz/console/) → your channel → **Messaging API** tab:
+   - **Channel access token (long-lived)** → Issue
+   - **Webhook URL** → `https://{your-domain}/webhook/line`
+   - **Use webhook** → ON
+   - **Webhook redelivery** → OFF (prevents duplicate processing)
+4. In LINE Official Account Manager → **Settings** → **Response settings**:
+   - **Auto-reply messages** → OFF
+   - **Greeting messages** → OFF
+5. Get the Channel Secret from the **Basic settings** tab
+6. Add to `.env`:
+   ```bash
+   LINE_CHANNEL_SECRET=your-channel-secret
+   LINE_CHANNEL_ACCESS_TOKEN=your-channel-access-token
+   WEBHOOK_PORT=3000  # default
+   ```
+
+For the public webhook URL:
+- **Local testing**: `ngrok http 3000` → use the generated URL + `/webhook/line`
+- **Production**: Deploy to any service that supports long-lived processes (not serverless):
+  - [Railway](https://railway.app/) — just add a `Dockerfile`. Free tier available. Easiest option
+  - [Fly.io](https://fly.io/) — `fly launch` and done. Free tier available
+  - [Render](https://render.com/) — run as a Background Worker. Free tier available
+  - Google Cloud Run (min-instances=1)
+  - Any VPS
+  - **Vercel / Netlify won't work** (serverless — can't maintain long-lived processes)
+
 #### Start the Gateway
 
 ```bash
