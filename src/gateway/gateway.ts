@@ -180,16 +180,32 @@ async function handleInbound(cfg: GatewayConfig, inbound: InboundMessage): Promi
     console.log(`Processing message with agent...`);
     debugLog(`[gateway] running agent for session=${route.sessionKey}`);
     const startedAt = Date.now();
-    const model = getSetting('modelId', 'gpt-5.4') as string;
-    const modelProvider = getSetting('provider', 'openai') as string;
-    const answer = await runAgentForMessage({
-      sessionKey: route.sessionKey,
-      query,
-      model,
-      modelProvider,
-      channel: inbound.channel,
-      groupContext,
-    });
+    const model = process.env.DEXTER_MODEL || getSetting('modelId', 'gpt-5.4') as string;
+    const modelProvider = process.env.DEXTER_PROVIDER || getSetting('provider', 'openai') as string;
+    const agentTimeoutMs = parseInt(process.env.DEXTER_AGENT_TIMEOUT_MS || '120000', 10);
+    const agentController = new AbortController();
+    const agentTimer = setTimeout(() => agentController.abort(), agentTimeoutMs);
+    let answer: string;
+    try {
+      answer = await runAgentForMessage({
+        sessionKey: route.sessionKey,
+        query,
+        model,
+        modelProvider,
+        channel: inbound.channel,
+        groupContext,
+        signal: agentController.signal,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('abort')) {
+        answer = `⏱️ 処理が${agentTimeoutMs / 1000}秒を超えたため中断しました。もう少し具体的な質問にするか、時間を空けて再度お試しください。`;
+      } else {
+        answer = `Error: ${msg.slice(0, 200)}`;
+      }
+    } finally {
+      clearTimeout(agentTimer);
+    }
     const durationMs = Date.now() - startedAt;
     debugLog(`[gateway] agent answer length=${answer.length}`);
 

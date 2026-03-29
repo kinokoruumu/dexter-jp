@@ -35,6 +35,8 @@ export interface RegisteredTool {
  * @returns Array of registered tools
  */
 export function getToolRegistry(model: string): RegisteredTool[] {
+  const isPublicGateway = process.env.DEXTER_PUBLIC_GATEWAY === '1';
+
   const tools: RegisteredTool[] = [
     {
       name: 'get_financials',
@@ -56,52 +58,22 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: webFetchTool,
       description: WEB_FETCH_DESCRIPTION,
     },
-    {
-      name: 'browser',
-      tool: browserTool,
-      description: BROWSER_DESCRIPTION,
-    },
-    {
-      name: 'read_file',
-      tool: readFileTool,
-      description: READ_FILE_DESCRIPTION,
-    },
-    {
-      name: 'write_file',
-      tool: writeFileTool,
-      description: WRITE_FILE_DESCRIPTION,
-    },
-    {
-      name: 'edit_file',
-      tool: editFileTool,
-      description: EDIT_FILE_DESCRIPTION,
-    },
-    {
-      name: 'heartbeat',
-      tool: heartbeatTool,
-      description: HEARTBEAT_TOOL_DESCRIPTION,
-    },
-    {
-      name: 'cron',
-      tool: cronTool,
-      description: CRON_TOOL_DESCRIPTION,
-    },
-    {
-      name: 'memory_search',
-      tool: memorySearchTool,
-      description: MEMORY_SEARCH_DESCRIPTION,
-    },
-    {
-      name: 'memory_get',
-      tool: memoryGetTool,
-      description: MEMORY_GET_DESCRIPTION,
-    },
-    {
-      name: 'memory_update',
-      tool: memoryUpdateTool,
-      description: MEMORY_UPDATE_DESCRIPTION,
-    },
   ];
+
+  // Tools excluded in public gateway mode (security + Gemini z.literal() incompatibility)
+  if (!isPublicGateway) {
+    tools.push(
+      { name: 'browser', tool: browserTool, description: BROWSER_DESCRIPTION },
+      { name: 'read_file', tool: readFileTool, description: READ_FILE_DESCRIPTION },
+      { name: 'write_file', tool: writeFileTool, description: WRITE_FILE_DESCRIPTION },
+      { name: 'edit_file', tool: editFileTool, description: EDIT_FILE_DESCRIPTION },
+      { name: 'heartbeat', tool: heartbeatTool, description: HEARTBEAT_TOOL_DESCRIPTION },
+      { name: 'cron', tool: cronTool, description: CRON_TOOL_DESCRIPTION },
+      { name: 'memory_search', tool: memorySearchTool, description: MEMORY_SEARCH_DESCRIPTION },
+      { name: 'memory_get', tool: memoryGetTool, description: MEMORY_GET_DESCRIPTION },
+      { name: 'memory_update', tool: memoryUpdateTool, description: MEMORY_UPDATE_DESCRIPTION },
+    );
+  }
 
   // Include stock price tool if J-Quants refresh token is configured
   if (isJQuantsAvailable()) {

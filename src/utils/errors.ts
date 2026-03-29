@@ -219,7 +219,7 @@ export function classifyError(raw?: string): ErrorType {
 
 export function isNonRetryableError(raw?: string): boolean {
   const type = classifyError(raw);
-  return type === 'context_overflow' || type === 'billing' || type === 'auth';
+  return type === 'context_overflow' || type === 'billing' || type === 'auth' || type === 'rate_limit';
 }
 
 export function formatUserFacingError(raw: string, provider?: string): string {

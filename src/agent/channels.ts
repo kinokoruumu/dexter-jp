@@ -66,10 +66,44 @@ const WHATSAPP_PROFILE: ChannelProfile = {
   tables: null,
 };
 
+const DISCORD_PROFILE: ChannelProfile = {
+  label: 'Discord',
+  preamble: 'Your output is delivered via Discord. Write clearly and use Discord-compatible formatting.',
+  behavior: [
+    'Be helpful and precise with financial data',
+    'Keep responses focused — Discord users expect concise answers',
+    'Never ask users to provide raw data or reference API internals',
+    'If data is incomplete, answer with what you have',
+  ],
+  responseFormat: [
+    'Use **bold** for emphasis on key numbers, tickers, or labels',
+    'Use bullet points for lists of 2-6 items',
+    'For simple questions, answer in 1-3 lines',
+    'For research, lead with the key finding, then supporting data',
+    'Do not use markdown headers (# or ##)',
+  ],
+  tables: `Discord does NOT render markdown tables. Always wrap tables in a code block.
+Use compact formatting with short headers.
+
+\`\`\`
+項目        | ソニー    | 任天堂
+------------|-----------|----------
+営業利益率  | 10.9%     | 24.3%
+自己資本比率| 23.2%     | 80.2%
+\`\`\`
+
+Keep tables compact:
+- Max 3-4 columns
+- Use code names: 7203 not トヨタ自動車
+- Abbreviate: Rev, OI, NI, OM, EPS
+- If more than 5 rows, consider using a bullet list instead`,
+};
+
 /** Registry of channel profiles. Add new channels here. */
 const CHANNEL_PROFILES: Record<string, ChannelProfile> = {
   cli: CLI_PROFILE,
   whatsapp: WHATSAPP_PROFILE,
+  discord: DISCORD_PROFILE,
 };
 
 /** Resolve the profile for a channel, falling back to CLI. */

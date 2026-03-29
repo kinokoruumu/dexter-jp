@@ -126,6 +126,24 @@ async function run(): Promise<void> {
   const server = await startGateway();
   console.log('Dexter gateway running. Press Ctrl+C to stop.');
 
+  // Minimal HTTP health check for Cloud Run (requires a PORT listener)
+  const port = process.env.PORT;
+  if (port) {
+    const { createServer } = await import('node:http');
+    const httpServer = createServer((req, res) => {
+      if (req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', gateway: 'running' }));
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+    httpServer.listen(parseInt(port, 10), () => {
+      console.log(`Health check server listening on port ${port}`);
+    });
+  }
+
   const shutdown = async () => {
     await server.stop();
     process.exit(0);

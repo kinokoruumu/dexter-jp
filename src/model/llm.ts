@@ -72,12 +72,50 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       ...opts,
       apiKey: getApiKey('ANTHROPIC_API_KEY'),
     }),
-  google: (name, opts) =>
-    new ChatGoogleGenerativeAI({
+  google: (name, opts) => {
+    const model = new ChatGoogleGenerativeAI({
       model: name,
       ...opts,
       apiKey: getApiKey('GOOGLE_API_KEY'),
-    }),
+    });
+    // Wrap bindTools to sanitize schemas for Gemini API
+    // Zod v4 may generate oneOf+const which Gemini rejects
+    const originalBind = model.bindTools.bind(model);
+    model.bindTools = function(tools: unknown[], ...rest: unknown[]) {
+      const result = originalBind(tools, ...rest);
+      // Sanitize config.tools (where LangChain Google stores functionDeclarations)
+      if (result.config?.tools) {
+        result.config.tools = JSON.parse(
+          JSON.stringify(result.config.tools, (_key: string, value: unknown) => {
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+              const obj = value as Record<string, unknown>;
+              // Convert oneOf/anyOf with const values to enum
+              for (const prop of ['oneOf', 'anyOf'] as const) {
+                if (Array.isArray(obj[prop])) {
+                  const items = obj[prop] as Record<string, unknown>[];
+                  const constVals = items
+                    .filter(i => i && typeof i === 'object' && 'const' in i)
+                    .map(i => i.const);
+                  if (constVals.length === items.length && constVals.length > 0) {
+                    const { [prop]: _, ...rest } = obj;
+                    return { ...rest, enum: constVals };
+                  }
+                }
+              }
+              // Convert standalone const to enum
+              if ('const' in obj) {
+                const { const: val, ...rest } = obj;
+                return { ...rest, enum: [val] };
+              }
+            }
+            return value;
+          })
+        );
+      }
+      return result;
+    } as typeof model.bindTools;
+    return model;
+  },
   xai: (name, opts) =>
     new ChatOpenAI({
       model: name,
@@ -137,6 +175,78 @@ export function getChatModel(
   const provider = resolveProvider(modelName);
   const factory = MODEL_FACTORIES[provider.id] ?? DEFAULT_FACTORY;
   return factory(modelName, opts);
+}
+
+/**
+ * Recursively sanitize JSON Schema for Gemini API compatibility.
+ * Zod v4 generates `oneOf: [{const: "a"}, {const: "b"}]` for enums/literals,
+ * which Gemini's function calling API doesn't support.
+ * This converts them to `{enum: ["a", "b"]}`.
+ */
+function sanitizeSchemaForGemini(schema: Record<string, unknown>): Record<string, unknown> {
+  if (!schema || typeof schema !== 'object') return schema;
+
+  const result = { ...schema };
+
+  // Convert oneOf with const values to enum
+  if (Array.isArray(result.oneOf)) {
+    const constValues = (result.oneOf as Record<string, unknown>[])
+      .filter(item => item && typeof item === 'object' && 'const' in item)
+      .map(item => item.const);
+    if (constValues.length > 0 && constValues.length === (result.oneOf as unknown[]).length) {
+      delete result.oneOf;
+      result.enum = constValues;
+      return result;
+    }
+  }
+
+  // Convert anyOf with const values to enum
+  if (Array.isArray(result.anyOf)) {
+    const constValues = (result.anyOf as Record<string, unknown>[])
+      .filter(item => item && typeof item === 'object' && 'const' in item)
+      .map(item => item.const);
+    if (constValues.length > 0 && constValues.length === (result.anyOf as unknown[]).length) {
+      delete result.anyOf;
+      result.enum = constValues;
+      return result;
+    }
+  }
+
+  // Remove standalone const (convert to enum with single value)
+  if ('const' in result) {
+    const val = result.const;
+    delete result.const;
+    result.enum = [val];
+  }
+
+  // Recurse into properties
+  if (result.properties && typeof result.properties === 'object') {
+    const props: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(result.properties as Record<string, unknown>)) {
+      props[key] = typeof value === 'object' && value !== null
+        ? sanitizeSchemaForGemini(value as Record<string, unknown>)
+        : value;
+    }
+    result.properties = props;
+  }
+
+  // Recurse into items
+  if (result.items && typeof result.items === 'object') {
+    result.items = sanitizeSchemaForGemini(result.items as Record<string, unknown>);
+  }
+
+  // Recurse into oneOf/anyOf items (when not fully convertible to enum)
+  for (const key of ['oneOf', 'anyOf', 'allOf'] as const) {
+    if (Array.isArray(result[key])) {
+      result[key] = (result[key] as Record<string, unknown>[]).map(item =>
+        typeof item === 'object' && item !== null
+          ? sanitizeSchemaForGemini(item)
+          : item
+      );
+    }
+  }
+
+  return result;
 }
 
 interface CallLlmOptions {

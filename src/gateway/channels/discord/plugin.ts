@@ -7,6 +7,28 @@ type DiscordAccountConfig = {
   enabled: boolean;
 };
 
+// --- Per-user rate limiting ---
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX = parseInt(process.env.DISCORD_RATE_LIMIT_PER_HOUR || '10', 10);
+const userRequestTimestamps = new Map<string, number[]>();
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const timestamps = userRequestTimestamps.get(userId) || [];
+  const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  userRequestTimestamps.set(userId, recent);
+  if (recent.length >= RATE_LIMIT_MAX) return true;
+  recent.push(now);
+  return false;
+}
+
+function getRemainingQuota(userId: string): number {
+  const now = Date.now();
+  const timestamps = userRequestTimestamps.get(userId) || [];
+  const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  return Math.max(0, RATE_LIMIT_MAX - recent.length);
+}
+
 type DiscordPluginParams = {
   loadConfig: () => GatewayConfig;
   onMessage: (inbound: InboundMessage) => Promise<void>;
@@ -73,6 +95,16 @@ export function createDiscordPlugin(params: DiscordPluginParams): ChannelPlugin<
           // Also strip role mentions that match the bot's name
           body = body.replace(/<@&\d+>\s*/g, '').trim();
           if (!body) return;
+
+          // Rate limiting
+          if (isRateLimited(message.author.id)) {
+            const remaining = getRemainingQuota(message.author.id);
+            await message.reply(
+              `⏳ レート制限中です。1時間あたり${RATE_LIMIT_MAX}回まで利用できます（残り${remaining}回）。しばらくお待ちください。\n` +
+              `Rate limited. You can send up to ${RATE_LIMIT_MAX} messages per hour. Please wait.`
+            );
+            return;
+          }
 
           const inbound: InboundMessage = {
             channel: 'discord',

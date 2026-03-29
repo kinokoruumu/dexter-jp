@@ -1,0 +1,8 @@
+node_modules
+.git
+.env
+.dexter/memory/
+.dexter/cache/
+!.dexter/settings.json
+*.md
+docs/
