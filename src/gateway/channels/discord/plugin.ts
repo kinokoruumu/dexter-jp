@@ -96,6 +96,10 @@ export function createDiscordPlugin(params: DiscordPluginParams): ChannelPlugin<
           body = body.replace(/<@&\d+>\s*/g, '').trim();
           if (!body) return;
 
+          // Ignore messages older than 30 seconds (stale from rev transition)
+          const messageAge = Date.now() - message.createdTimestamp;
+          if (messageAge > 30000) return;
+
           // Rate limiting
           if (isRateLimited(message.author.id)) {
             const remaining = getRemainingQuota(message.author.id);
