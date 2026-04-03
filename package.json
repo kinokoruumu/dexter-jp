@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "api": "bun run src/api/server.ts",
     "postinstall": "playwright install chromium"
   },
   "dependencies": {

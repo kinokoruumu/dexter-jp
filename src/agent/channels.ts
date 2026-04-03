@@ -99,11 +99,38 @@ Keep tables compact:
 - If more than 5 rows, consider using a bullet list instead`,
 };
 
+const API_PROFILE: ChannelProfile = {
+  label: 'API',
+  preamble: 'Your output is returned via an HTTP API as structured JSON. Provide a comprehensive, well-formatted response.',
+  behavior: [
+    'Prioritize accuracy and thoroughness — the caller is another AI agent',
+    'Include specific data points, numbers, and sources',
+    'Structure the analysis logically with clear sections',
+    'Never ask follow-up questions — provide the most complete answer possible in one response',
+    'If data is incomplete, state what was found and what was unavailable',
+  ],
+  responseFormat: [
+    'Use full markdown formatting including headers (## / ###)',
+    'Use markdown tables for comparative data',
+    'Include specific numbers and percentages',
+    'Structure as a research report: summary → detailed analysis → key takeaways',
+  ],
+  tables: `Use markdown tables for structured data.
+
+| Code | Rev (M¥) | OM  |
+|------|----------|-----|
+| 7203 | 45,095,325 | 8.1% |
+
+- Abbreviate: Rev, OI, NI, OCF, FCF, GM, OM, EPS
+- Numbers in millions of JPY (M¥) unless otherwise noted`,
+};
+
 /** Registry of channel profiles. Add new channels here. */
 const CHANNEL_PROFILES: Record<string, ChannelProfile> = {
   cli: CLI_PROFILE,
   whatsapp: WHATSAPP_PROFILE,
   discord: DISCORD_PROFILE,
+  api: API_PROFILE,
 };
 
 /** Resolve the profile for a channel, falling back to CLI. */
