@@ -1,14 +1,11 @@
-FROM node:22-slim
-
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install && npx playwright install --with-deps chromium
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile --production
 
 COPY . .
 
-ENV NODE_ENV=production
-
-CMD ["npx", "tsx", "src/gateway/index.ts", "run"]
+EXPOSE 8080
+CMD ["bun", "run", "src/api/server.ts"]
