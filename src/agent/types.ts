@@ -147,6 +147,18 @@ export interface ToolDeniedEvent {
 }
 
 /**
+ * LLM-based context compaction lifecycle event.
+ * Fires when accumulated tool results are summarized by a fast LLM
+ * instead of being dropped (clearing).
+ */
+export interface CompactionEvent {
+  type: 'compaction';
+  phase: 'start' | 'end' | 'error';
+  /** Formatted summary injected into the next iteration prompt (end phase only). */
+  summary?: string;
+}
+
+/**
  * Context was cleared due to exceeding token threshold (Anthropic-style)
  */
 export interface ContextClearedEvent {
@@ -209,6 +221,7 @@ export type AgentEvent =
   | ToolApprovalEvent
   | ToolDeniedEvent
   | ToolLimitEvent
+  | CompactionEvent
   | ContextClearedEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent

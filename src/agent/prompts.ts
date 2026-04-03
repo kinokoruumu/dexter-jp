@@ -27,6 +27,19 @@ export function getCurrentDate(): string {
 }
 
 /**
+ * Load user-defined research rules from .dexter/RULES.md.
+ * Returns null if the file doesn't exist (rules are optional).
+ */
+export async function loadRulesDocument(): Promise<string | null> {
+  const rulesPath = dexterPath('RULES.md');
+  try {
+    return await readFile(rulesPath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Load SOUL.md content from user override or bundled file.
  */
 export async function loadSoulDocument(): Promise<string | null> {
@@ -199,6 +212,7 @@ export function buildGroupSection(ctx: GroupContext): string {
  * @param model - The model name (used to get appropriate tool descriptions)
  * @param soulContent - Optional SOUL.md identity content
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
+ * @param rulesContent - Optional .dexter/RULES.md content for user-defined research rules
  */
 export function buildSystemPrompt(
   model: string,
@@ -207,6 +221,7 @@ export function buildSystemPrompt(
   groupContext?: GroupContext,
   memoryFiles?: string[],
   memoryContext?: string | null,
+  rulesContent?: string | null,
 ): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
@@ -267,7 +282,7 @@ Embody the identity and investing philosophy described above. Let it shape your 
 
 ## Response Format
 
-${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(groupContext) : ''}`;
+${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(groupContext) : ''}${rulesContent ? `\n\n## Research Rules\n\nThe user has configured the following research rules in .dexter/RULES.md. Follow these when conducting research:\n\n${rulesContent}` : ''}`;
 }
 
 // ============================================================================

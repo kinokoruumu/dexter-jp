@@ -2,13 +2,14 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument, loadRulesDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
 import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import { compactContext, MAX_CONSECUTIVE_COMPACTION_FAILURES, MIN_TOOL_RESULTS_FOR_COMPACTION } from './compact.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 import { MemoryManager } from '../memory/index.js';
@@ -33,6 +34,7 @@ export class Agent {
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
+  private compactionFailures: number = 0;
 
   private constructor(
     config: AgentConfig,
@@ -56,6 +58,7 @@ export class Agent {
     const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
     const soulContent = await loadSoulDocument();
+    const rulesContent = await loadRulesDocument();
     let memoryFiles: string[] = [];
     let memoryContext: string | null = null;
 
@@ -75,6 +78,7 @@ export class Agent {
       config.groupContext,
       memoryFiles,
       memoryContext,
+      rulesContent,
     );
     return new Agent(config, tools, systemPrompt);
   }
@@ -237,13 +241,15 @@ export class Agent {
   }
 
   /**
-   * Clear oldest tool results if context size exceeds threshold.
+   * Manage context size when it exceeds the threshold.
+   * Tries LLM-based compaction first (preserves all data as a summary),
+   * falls back to clearing oldest tool results if compaction fails.
    */
   private async *manageContextThreshold(
     ctx: RunContext,
     query: string,
     memoryFlushState: { alreadyFlushed: boolean },
-  ): AsyncGenerator<ContextClearedEvent | AgentEvent, void> {
+  ): AsyncGenerator<CompactionEvent | ContextClearedEvent | AgentEvent, void> {
     const fullToolResults = ctx.scratchpad.getToolResults();
     const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
 
@@ -271,6 +277,34 @@ export class Agent {
         };
       }
 
+      // Try LLM-based compaction when enough tool results exist
+      const toolResultCount = ctx.scratchpad.getToolCallRecords().length;
+      const canCompact =
+        this.compactionFailures < MAX_CONSECUTIVE_COMPACTION_FAILURES &&
+        toolResultCount >= MIN_TOOL_RESULTS_FOR_COMPACTION;
+
+      if (canCompact) {
+        yield { type: 'compaction', phase: 'start' };
+        try {
+          const compactResult = await compactContext({
+            model: this.model,
+            systemPrompt: this.systemPrompt,
+            query,
+            toolResults: fullToolResults,
+            signal: this.signal,
+          });
+          ctx.tokenCounter.add(compactResult.usage);
+          ctx.scratchpad.replaceWithCompactionSummary(compactResult.summary);
+          this.compactionFailures = 0;
+          yield { type: 'compaction', phase: 'end', summary: compactResult.summary };
+          return;
+        } catch {
+          this.compactionFailures++;
+          yield { type: 'compaction', phase: 'error' };
+        }
+      }
+
+      // Fallback: clear oldest tool results
       const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
       if (clearedCount > 0) {
         memoryFlushState.alreadyFlushed = false;

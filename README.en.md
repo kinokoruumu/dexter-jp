@@ -158,6 +158,27 @@ Complex multi-step workflows are defined in `SKILL.md` files. Ships with a built
 - Awareness of TSE's PBR-below-1x governance push
 - All analysis in JPY
 
+### Research Rules (`.dexter/RULES.md`)
+
+Define your investment style and analysis preferences in Markdown. The rules are automatically loaded into the system prompt and guide Dexter's research behavior.
+
+```bash
+mkdir -p .dexter
+cp RULES.md.example .dexter/RULES.md
+# Edit to match your preferences
+```
+
+Use `/rules` in the CLI to verify your current rules are active.
+
+Examples:
+- Always compare against 5 sector peers
+- Report financials in JPY millions
+- Screen using value criteria (ROE > 10%, PBR < 1.5)
+
+### Context Compaction
+
+During long research sessions with heavy data retrieval, a fast LLM automatically compresses accumulated tool results into a structured summary. Unlike simple clearing, key numbers and conclusions are preserved — keeping analysis coherent across the full session.
+
 ### Memory
 
 Persists across sessions. Dexter remembers your investment thesis, portfolio information, and past analyses.

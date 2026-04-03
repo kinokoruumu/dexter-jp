@@ -1,10 +1,12 @@
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
+import { readFile } from 'node:fs/promises';
 import type {
   ApprovalDecision,
   ToolEndEvent,
   ToolErrorEvent,
   ToolStartEvent,
 } from './agent/index.js';
+import { dexterPath } from './utils/paths.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 import { logger } from './utils/logger.js';
 import {
@@ -147,6 +149,14 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
       if (event.type === 'context_cleared') {
         chatLog.addContextCleared(event.clearedCount, event.keptCount);
       }
+
+      if (event.type === 'compaction') {
+        if (event.phase === 'start') {
+          chatLog.addSystemMessage('Compacting context with AI summarization...');
+        } else if (event.phase === 'error') {
+          chatLog.addSystemMessage('Compaction failed, clearing oldest results instead.');
+        }
+      }
     }
 
     if (item.answer) {
@@ -228,6 +238,17 @@ export async function runCli() {
 
     if (query === '/model') {
       modelSelection.startSelection();
+      return;
+    }
+
+    if (query === '/rules') {
+      try {
+        const rules = await readFile(dexterPath('RULES.md'), 'utf-8');
+        chatLog.addSystemMessage(`Research rules (.dexter/RULES.md):\n${rules}`);
+      } catch {
+        chatLog.addSystemMessage('No research rules found. Create .dexter/RULES.md to set custom rules.');
+      }
+      tui.requestRender();
       return;
     }
 

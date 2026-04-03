@@ -274,6 +274,12 @@ export class ChatLogComponent extends Container {
     );
   }
 
+  addSystemMessage(message: string) {
+    this.addChild(
+      new Text(`${theme.muted(`⏺ ${message}`)}`, 0, 0),
+    );
+  }
+
   addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {
     const parts = [formatDuration(duration)];
     if (tokenUsage && tokenUsage.totalTokens > 20_000) {

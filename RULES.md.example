@@ -1,0 +1,72 @@
+# Research Rules
+
+This file customizes how Dexter conducts financial research.
+Copy this file to `.dexter/RULES.md` to activate it.
+Use `/rules` in the CLI to verify your rules are loaded.
+
+---
+
+## Example: Japanese Stock Research Rules
+
+### Scope
+- Focus on TSE Prime/Standard/Growth market companies
+- Prioritize Japanese-language filings (有価証券報告書, 決算短信)
+- Use securities codes (証券コード) when referencing companies
+
+### Analysis Framework
+- Always compare against sector peers (同業他社比較) before concluding
+- Report financial metrics in JPY millions (百万円) unless specified
+- Include YoY and QoQ changes for key metrics
+- Flag any significant one-time items (特殊要因) separately
+
+### Data Sources Priority
+1. get_financials — for financial statements, ratios, and earnings data
+2. read_filings — for qualitative analysis (MD&A, risks, business overview)
+3. company_screener — for peer comparison and screening
+4. get_stock_price — for price and volume data (J-Quants)
+
+### Output Format
+- Lead with a summary (3–5 bullet points) before detailed analysis
+- Use tables for peer comparisons (max 5 companies)
+- Abbreviate: 売上高→Rev, 営業利益→OI, 純利益→NI, ROE, ROA, PER, PBR
+- Always include the data retrieval date
+
+### My Watchlist
+<!-- Add your focus sectors or companies here -->
+<!-- Example: -->
+<!-- - Sector focus: 半導体, 自動車部品, 医薬品 -->
+<!-- - Companies: 7203 (トヨタ), 6758 (ソニー), 9984 (ソフトバンクG) -->
+
+---
+
+## Example: Value Investing Rules
+
+### Investment Philosophy
+- Focus on companies with consistent FCF generation over 5+ years
+- Avoid companies with D/E ratio > 1.5 (financial companies excluded)
+- Look for businesses with sustainable competitive advantages (経済的堀)
+
+### Screening Criteria
+- ROE > 10% for 3 consecutive years
+- PBR < 1.5 (deep value) or PBR < 3.0 with high ROE
+- Dividend yield > 2% preferred
+- Market cap > ¥50B for liquidity
+
+### Red Flags
+- Revenue declining for 2+ consecutive years
+- Goodwill > 30% of total assets
+- Management compensation growing faster than earnings
+
+---
+
+## How to Use
+
+Create `.dexter/RULES.md` with your own rules:
+
+```bash
+mkdir -p .dexter
+cp RULES.md.example .dexter/RULES.md
+# Then edit .dexter/RULES.md to your preferences
+```
+
+Rules are loaded automatically on startup and displayed with `/rules`.

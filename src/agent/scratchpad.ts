@@ -76,6 +76,9 @@ export class Scratchpad {
   // Stores indices of tool_result entries that have been cleared from context
   private clearedToolIndices: Set<number> = new Set();
 
+  // Compaction summary replaces raw tool results after LLM-based context compaction
+  private compactionSummary: string | null = null;
+
   constructor(query: string, limitConfig?: Partial<ToolLimitConfig>) {
     this.limitConfig = { ...DEFAULT_LIMIT_CONFIG, ...limitConfig };
 
@@ -303,28 +306,33 @@ export class Scratchpad {
    * Does NOT modify the JSONL file - clearing is in-memory only.
    */
   getToolResults(): string {
+    // If compaction has run, return the summary instead of raw tool results
+    if (this.compactionSummary) {
+      return this.compactionSummary;
+    }
+
     const entries = this.readEntries();
     let toolResultIndex = 0;
-    
+
     const formattedResults: string[] = [];
     for (const entry of entries) {
       if (entry.type !== 'tool_result' || !entry.toolName) continue;
-      
+
       // Skip entries that have been cleared from context (in-memory only)
       if (this.clearedToolIndices.has(toolResultIndex)) {
         formattedResults.push(`[Tool result #${toolResultIndex + 1} cleared from context]`);
         toolResultIndex++;
         continue;
       }
-      
-      const argsStr = entry.args 
+
+      const argsStr = entry.args
         ? Object.entries(entry.args).map(([k, v]) => `${k}=${v}`).join(', ')
         : '';
       const resultStr = this.stringifyResult(entry.result);
       formattedResults.push(`### ${entry.toolName}(${argsStr})\n${resultStr}`);
       toolResultIndex++;
     }
-    
+
     return formattedResults.join('\n\n');
   }
 
@@ -382,6 +390,24 @@ export class Scratchpad {
     }
     
     return count;
+  }
+
+  /**
+   * Replace all accumulated tool results with a compaction summary.
+   * Called after successful LLM-based context compaction to reset the scratchpad
+   * while preserving research continuity via the summary.
+   */
+  replaceWithCompactionSummary(summary: string): void {
+    this.clearedToolIndices = new Set();
+    this.compactionSummary = summary;
+  }
+
+  /**
+   * Get the current compaction summary (if any).
+   * Injected into the iteration prompt to preserve context after compaction.
+   */
+  getCompactionSummary(): string | null {
+    return this.compactionSummary ?? null;
   }
 
   /**
