@@ -52,6 +52,9 @@ yarn-error.log*
 # Cursor files
 .cursor/
 
+# Claude Code (deploy commands contain infra details)
+.claude/commands/
+
 # Dexter context files (offloaded tool outputs)
 .dexter/*
 
